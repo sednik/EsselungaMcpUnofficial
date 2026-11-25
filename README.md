@@ -15,7 +15,7 @@ Il catalogo è interrogato in sola lettura. Il carrello usa una sessione HTTP lo
 Apri PowerShell nella cartella del progetto:
 
 ```powershell
-cd C:\devFolder\codex_Esselunga_Mcp
+# dalla cartella in cui hai clonato il repository
 npm install
 Copy-Item .env.example .env
 ```

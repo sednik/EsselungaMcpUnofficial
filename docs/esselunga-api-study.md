@@ -85,7 +85,7 @@ Il cookie SSO di tipo “remember me” consente però un rinnovo silenzioso: il
 
 Il frontend aggiunge o aggiorna una quantità con `POST /commerce/resources/auth/trolley/item`, inviando almeno `productId`, `quantity`, `productIntervalId`, `productAttributeIds`, `productOrigin` e `forced`. Rimuove una riga con `DELETE /commerce/resources/auth/trolley/item/{trolleyItemId}`.
 
-Il tool `update_cart` esegue queste chiamate dalla sessione browser e richiede `confirm: true`. Supporta `add` tramite il `code` restituito da `search_products`, `set_quantity` e `remove` tramite il `trolleyItemId` restituito da `get_cart_browser`. Non supporta prodotti a peso variabile o con attributi da selezionare; non chiama nessun endpoint di checkout.
+Il tool `update_cart` esegue queste chiamate dalla sessione HTTP rinnovata e richiede `confirm: true`. Supporta `add` tramite il `code` restituito da `search_products`, `set_quantity` e `remove` tramite il `trolleyItemId` restituito da `get_cart`. Per i prodotti a peso variabile sceglie l’unico intervallo disponibile oppure richiede esplicitamente `productIntervalId`, ottenibile da `get_product_details`; gli eventuali attributi selezionati possono essere passati come `productAttributeIds`. Non chiama nessun endpoint di checkout.
 
 ## Contesto pagina
 

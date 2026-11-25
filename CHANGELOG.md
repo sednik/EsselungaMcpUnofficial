@@ -1,5 +1,13 @@
 # Changelog
 
+## Non pubblicato
+
+### Aggiunto
+
+- Aggiunta al carrello di prodotti a peso variabile tramite `productIntervalId`.
+- Tool `get_product_details` per leggere intervalli di peso e attributi selezionabili.
+- Foto prodotto nelle chat MCP compatibili: anteprime opzionali in `search_products` e tool `get_product_image`.
+
 ## 1.0.0 — 2026-11-25
 
 Prima release del server MCP Esselunga.
@@ -18,5 +26,4 @@ Prima release del server MCP Esselunga.
 ### Limiti noti
 
 - Checkout, pagamento e invio ordini non sono supportati.
-- I prodotti a peso variabile o con opzioni obbligatorie non possono essere modificati dal tool `update_cart`.
 - Gli endpoint Esselunga sono interni e possono cambiare senza preavviso.

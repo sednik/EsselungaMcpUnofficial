@@ -90,7 +90,23 @@ Puoi filtrare un tipo di promozione:
 }
 ```
 
-Il risultato include `code`, `productId`, prezzo, prezzo scontato, disponibilità e promozioni. Per aggiungere un prodotto al carrello serve il valore `code`, non `productId`.
+Il risultato include `code`, `productId`, prezzo, prezzo scontato, disponibilità, promozioni, eventuali intervalli di peso e `imageURL`. Per aggiungere un prodotto al carrello serve il valore `code`, non `productId`.
+
+Imposta `includeImages: true` per allegare alla risposta fino a quattro foto direttamente nella chat LLM, se il client MCP supporta contenuti immagine:
+
+```json
+{
+  "query": "latte",
+  "length": 4,
+  "includeImages": true
+}
+```
+
+In alternativa usa `get_product_image` passando un `imageURL` ottenuto dalla ricerca. Il tool restituisce una singola immagine MCP ed evita di scaricare URL esterni al catalogo Esselunga.
+
+### `get_product_details`
+
+Legge il dettaglio del prodotto e restituisce gli eventuali `productIntervals` (peso/pezzatura) e `productAttributeIds`. È utile prima di aggiungere un prodotto a peso variabile.
 
 ### `get_cart`
 
@@ -134,7 +150,19 @@ Rimozione di una riga:
 }
 ```
 
-`update_cart` gestisce prodotti confezionati standard. I prodotti a peso variabile o con opzioni obbligatorie vengono bloccati perché richiedono ulteriori dati.
+Per i prodotti a peso variabile, chiama prima `get_product_details`. Se è disponibile un solo intervallo, `update_cart` lo usa automaticamente; se ne esistono più di uno, scegli quello desiderato con `productIntervalId`:
+
+```json
+{
+  "action": "add",
+  "productCode": "CODICE_PRODOTTO",
+  "productIntervalId": 123456,
+  "quantity": 1,
+  "confirm": true
+}
+```
+
+Per le eventuali opzioni richieste dal prodotto, passa gli identificativi selezionati in `productAttributeIds`. La quantità resta il numero di unità dell’intervallo scelto; il peso effettivo è determinato dal prodotto/pezzatura indicati da Esselunga.
 
 ### `start_auth_wizard` e `complete_auth_wizard`
 

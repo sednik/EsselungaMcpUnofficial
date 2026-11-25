@@ -21,6 +21,64 @@ let browserContext: BrowserContext | undefined;
 let browserPage: Page | undefined;
 let browserIsHeadless: boolean | undefined;
 
+type JsonObject = Record<string, unknown>;
+
+function asObject(value: unknown): JsonObject | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as JsonObject : undefined;
+}
+
+function intervalCandidates(product: JsonObject): JsonObject[] {
+  const candidates = [
+    product.productInterval,
+    ...(Array.isArray(product.productIntervals) ? product.productIntervals : []),
+    ...(Array.isArray(product.intervals) ? product.intervals : []),
+  ];
+  return candidates.map(asObject).filter((value): value is JsonObject => Boolean(value));
+}
+
+function attributeIds(product: JsonObject): number[] {
+  return (Array.isArray(product.attributes) ? product.attributes : [])
+    .map(asObject)
+    .map((attribute) => attribute?.productAttributeId ?? attribute?.id)
+    .filter((id): id is number => typeof id === 'number');
+}
+
+function publicProduct(product: JsonObject): JsonObject {
+  const intervals = intervalCandidates(product).map((interval) => ({
+    id: interval.id,
+    value: interval.value,
+    ratio: interval.ratio,
+    ums: interval.ums,
+  }));
+  return {
+    productId: product.productId ?? product.id,
+    code: product.code,
+    description: product.description,
+    brand: product.brand,
+    price: product.price,
+    discountedPrice: product.discountedPrice,
+    label: product.label,
+    unitText: product.unitText,
+    unitValue: product.unitValue,
+    outOfStock: product.outOfStock,
+    variableWeight: product.variableWeight === true,
+    productIntervals: intervals,
+    productAttributeIds: attributeIds(product),
+    promotions: product.promotionsDetail,
+    imageURL: product.imageURL,
+    canBeAddedToShoppingList: product.canBeAddedToShoppingList,
+  };
+}
+
+function imageUrlIsAllowed(imageURL: string): boolean {
+  try {
+    const url = new URL(imageURL);
+    return url.protocol === 'https:' && (url.hostname === 'esselunga.it' || url.hostname.endsWith('.esselunga.it'));
+  } catch {
+    return false;
+  }
+}
+
 async function getBrowserPage(headless = browserHeadless): Promise<Page> {
   if (browserContext && browserIsHeadless !== headless) {
     await browserContext.close();
@@ -52,14 +110,14 @@ async function requestJson(path: string, init: RequestInit = {}): Promise<{ stat
   }
 }
 
-const server = new McpServer({ name: 'esselunga-mcp', version: '0.3.0' });
+const server = new McpServer({ name: 'esselunga-mcp', version: '1.0.0' });
 
 server.registerTool(
   'server_status',
   {
     title: 'Stato del server Esselunga',
     description: 'Mostra lo stato del server MCP e della configurazione locale Esselunga.',
-    inputSchema: {},
+    inputSchema: z.object({}),
   },
   async () => ({
     content: [{
@@ -85,9 +143,10 @@ server.registerTool(
       start: z.number().int().min(0).default(0).describe('Indice del primo risultato'),
       length: z.number().int().min(1).max(50).default(20).describe('Numero massimo di risultati'),
       promotion: z.string().trim().min(1).optional().describe('Filtro promozione, per esempio SCONTO FIDATY o PREZZI CORTI'),
+      includeImages: z.boolean().default(false).describe('Se true, allega fino a quattro foto prodotto alla risposta per le chat che visualizzano immagini MCP'),
     },
   },
-  async ({ query, start, length, promotion }) => {
+  async ({ query, start, length, promotion, includeImages }) => {
     if (!pagePath) {
       return {
         isError: true,
@@ -149,33 +208,91 @@ server.registerTool(
       return { isError: true, content: [{ type: 'text', text: 'La risposta Esselunga non contiene displayables.entities come atteso.' }] };
     }
 
-    const products = displayables.entities.map((product) => ({
-      productId: product.productId ?? product.id,
-      code: product.code,
-      description: product.description,
-      brand: product.brand,
-      price: product.price,
-      discountedPrice: product.discountedPrice,
-      label: product.label,
-      unitText: product.unitText,
-      unitValue: product.unitValue,
-      outOfStock: product.outOfStock,
-      promotions: product.promotionsDetail,
-      imageURL: product.imageURL,
-      canBeAddedToShoppingList: product.canBeAddedToShoppingList,
-    }));
+    const products = displayables.entities.map(publicProduct);
+    const content: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> = [{
+      type: 'text',
+      text: JSON.stringify({
+        query,
+        total: displayables.rowCount,
+        range: displayables.range,
+        products,
+      }, null, 2),
+    }];
+
+    if (includeImages) {
+      const imageProducts = products
+        .filter((product) => typeof product.imageURL === 'string' && imageUrlIsAllowed(product.imageURL))
+        .slice(0, 4);
+      for (const product of imageProducts) {
+        try {
+          const imageResponse = await fetch(product.imageURL as string, { signal: AbortSignal.timeout(15_000) });
+          const mimeType = imageResponse.headers.get('content-type')?.split(';')[0] ?? '';
+          const bytes = new Uint8Array(await imageResponse.arrayBuffer());
+          if (!imageResponse.ok || !mimeType.startsWith('image/') || bytes.byteLength > 5_000_000) continue;
+          content.push({ type: 'image', data: Buffer.from(bytes).toString('base64'), mimeType });
+        } catch {
+          // Un'anteprima non disponibile non deve rendere inutilizzabile la ricerca.
+        }
+      }
+    }
 
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          query,
-          total: displayables.rowCount,
-          range: displayables.range,
-          products,
-        }, null, 2),
-      }],
+      content,
     };
+  },
+);
+
+server.registerTool(
+  'get_product_image',
+  {
+    title: 'Mostra foto prodotto Esselunga',
+    description: 'Restituisce la foto di un prodotto come immagine MCP, visualizzabile nelle chat LLM compatibili. Usa imageURL ottenuto da search_products o get_product_details.',
+    inputSchema: {
+      imageURL: z.string().url().describe('URL immagine restituito dal catalogo Esselunga'),
+    },
+  },
+  async ({ imageURL }) => {
+    if (!imageUrlIsAllowed(imageURL)) {
+      return { isError: true, content: [{ type: 'text', text: 'imageURL deve essere un URL HTTPS del catalogo Esselunga.' }] };
+    }
+    try {
+      const response = await fetch(imageURL, { signal: AbortSignal.timeout(15_000) });
+      const mimeType = response.headers.get('content-type')?.split(';')[0] ?? '';
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (!response.ok || !mimeType.startsWith('image/')) {
+        return { isError: true, content: [{ type: 'text', text: `Immagine non disponibile (HTTP ${response.status}).` }] };
+      }
+      if (bytes.byteLength > 5_000_000) {
+        return { isError: true, content: [{ type: 'text', text: 'Immagine troppo grande per essere allegata alla risposta MCP.' }] };
+      }
+      return { content: [{ type: 'image', data: Buffer.from(bytes).toString('base64'), mimeType }] };
+    } catch (error) {
+      return { isError: true, content: [{ type: 'text', text: error instanceof Error ? error.message : 'Impossibile scaricare l’immagine del prodotto.' }] };
+    }
+  },
+);
+
+server.registerTool(
+  'get_product_details',
+  {
+    title: 'Leggi dettaglio prodotto Esselunga',
+    description: 'Legge i dettagli necessari per aggiungere un prodotto al carrello, inclusi intervalli di peso e attributi selezionabili.',
+    inputSchema: {
+      productCode: z.string().trim().min(1).describe('Campo code restituito da search_products'),
+    },
+  },
+  async ({ productCode }) => {
+    try {
+      const detail = await requestJson(`/commerce/resources/displayable/detail/code/${encodeURIComponent(productCode)}`);
+      const payload = asObject(detail.payload);
+      const product = asObject(payload?.displayableProduct) ?? asObject(detail.payload);
+      if (detail.status !== 200 || !product) {
+        return { isError: true, content: [{ type: 'text', text: `Prodotto non trovato o dettaglio non disponibile (HTTP ${detail.status}).` }] };
+      }
+      return { content: [{ type: 'text', text: JSON.stringify(publicProduct(product), null, 2) }] };
+    } catch (error) {
+      return { isError: true, content: [{ type: 'text', text: error instanceof Error ? error.message : 'Impossibile leggere il dettaglio prodotto.' }] };
+    }
   },
 );
 
@@ -184,7 +301,7 @@ server.registerTool(
   {
     title: 'Apri sessione browser Esselunga',
     description: 'Apre Chrome con un profilo locale dedicato. Accedi manualmente a Esselunga nella finestra aperta, poi usa get_cart.',
-    inputSchema: {},
+    inputSchema: z.object({}),
   },
   async () => {
     const page = await getBrowserPage();
@@ -193,7 +310,7 @@ server.registerTool(
         type: 'text',
         text: browserHeadless
           ? `Sessione browser headless avviata su ${page.url()}. Se il profilo non è già autenticato, imposta ESSELUNGA_BROWSER_HEADLESS=false, riavvia il server e completa l'accesso manualmente.`
-          : `Sessione browser aperta su ${page.url()}. Completa manualmente l'accesso Esselunga in questa finestra; il profilo locale è ${browserProfileDir}.`,
+          : `Sessione browser aperta su ${page.url()}. Completa manualmente l'accesso Esselunga in questa finestra; il profilo locale sarà riutilizzato dal wizard.`,
       }],
     };
   },
@@ -204,7 +321,7 @@ server.registerTool(
   {
     title: 'Avvia configurazione Esselunga',
     description: 'Apre il login Esselunga per il bootstrap iniziale. Completa manualmente accesso e 2FA nella finestra, poi usa complete_auth_wizard.',
-    inputSchema: {},
+    inputSchema: z.object({}),
   },
   async () => {
     const page = await getBrowserPage(false);
@@ -223,7 +340,7 @@ server.registerTool(
   {
     title: 'Completa configurazione Esselunga',
     description: 'Importa la sessione autenticata dal browser e salva lo stato HTTP per i successivi avvii in background.',
-    inputSchema: {},
+    inputSchema: z.object({}),
   },
   async () => {
     if (!browserContext) {
@@ -246,7 +363,7 @@ server.registerTool(
     return {
       content: [{
         type: 'text',
-        text: `Configurazione completata. La sessione HTTP è salvata in ${sessionStateFile}; il browser è stato chiuso e il server ora lavora in background senza finestre.`,
+        text: 'Configurazione completata. La sessione HTTP è stata salvata; il browser è stato chiuso e il server ora lavora in background senza finestre.',
       }],
     };
   },
@@ -256,8 +373,8 @@ server.registerTool(
   'get_cart',
   {
     title: 'Leggi carrello Esselunga',
-    description: 'Legge il carrello dalla sessione Esselunga presente nel browser locale. Non modifica il carrello.',
-    inputSchema: {},
+    description: 'Legge il carrello dalla sessione HTTP Esselunga rinnovata automaticamente. Non modifica il carrello.',
+    inputSchema: z.object({}),
   },
   async () => {
     let result: { status: number; payload: unknown };
@@ -316,16 +433,18 @@ server.registerTool(
   'update_cart',
   {
     title: 'Modifica carrello Esselunga',
-    description: 'Aggiunge un prodotto, imposta una quantità o rimuove una riga nel carrello della sessione browser. Non può effettuare checkout.',
+    description: 'Aggiunge un prodotto, anche a peso variabile, imposta una quantità o rimuove una riga nel carrello della sessione autenticata. Non può effettuare checkout.',
     inputSchema: {
       action: z.enum(['add', 'set_quantity', 'remove']).describe('Operazione da eseguire sul carrello'),
       productCode: z.string().trim().min(1).optional().describe('Codice prodotto Esselunga, necessario per add; è il campo code restituito da search_products'),
+      productIntervalId: z.number().int().positive().optional().describe('Intervallo di peso/pezzatura da get_product_details; per un prodotto a peso variabile è scelto automaticamente se ce n’è uno solo'),
+      productAttributeIds: z.array(z.number().int().positive()).max(20).default([]).describe('Eventuali attributi obbligatori scelti da get_product_details'),
       trolleyItemId: z.number().int().positive().optional().describe('Identificativo riga carrello, necessario per set_quantity e remove'),
       quantity: z.number().int().min(1).max(99).optional().describe('Quantità desiderata, necessaria per add e set_quantity'),
       confirm: z.boolean().default(false).describe('Imposta true solo per eseguire realmente la modifica'),
     },
   },
-  async ({ action, productCode, trolleyItemId, quantity, confirm }) => {
+  async ({ action, productCode, productIntervalId, productAttributeIds, trolleyItemId, quantity, confirm }) => {
     if (action === 'add' && (!productCode || quantity === undefined)) {
       return { isError: true, content: [{ type: 'text', text: 'Per action add servono productCode e quantity.' }] };
     }
@@ -343,6 +462,8 @@ server.registerTool(
             willModifyCart: true,
             action,
             productCode,
+            productIntervalId,
+            productAttributeIds,
             trolleyItemId,
             quantity,
             nextStep: 'Ripeti la stessa chiamata con confirm: true per applicare la modifica.',
@@ -374,10 +495,26 @@ server.registerTool(
               result = { phase: 'product', status: detail.status, message: 'Prodotto non trovato.' };
             } else if (product.outOfStock === true) {
               result = { phase: 'validation', status: 409, message: 'Prodotto non disponibile.' };
-            } else if (product.variableWeight === true || (Array.isArray(product.attributes) && product.attributes.length > 0)) {
-              result = { phase: 'validation', status: 422, message: 'Prodotto a peso variabile o con scelte obbligatorie: non gestito da update_cart.' };
             } else {
-              result = { phase: 'ready', status: 200 };
+              const intervals = intervalCandidates(product);
+              const selectedInterval = productIntervalId === undefined
+                ? (intervals.length === 1 ? intervals[0] : undefined)
+                : intervals.find((interval) => interval.id === productIntervalId);
+              const requiresInterval = product.variableWeight === true || intervals.length > 0;
+              if (requiresInterval && !selectedInterval) {
+                result = {
+                  phase: 'validation',
+                  status: 422,
+                  message: 'Per questo prodotto seleziona productIntervalId usando get_product_details; non è possibile dedurre in sicurezza una pezzatura tra più alternative.',
+                };
+              } else {
+                product = {
+                  ...product,
+                  productIntervalId: selectedInterval?.id ?? null,
+                  productAttributeIds,
+                };
+                result = { phase: 'ready', status: 200 };
+              }
             }
           } else {
             const item = cart.trolleyItems.find((row) => row.trolleyItemId === trolleyItemId);

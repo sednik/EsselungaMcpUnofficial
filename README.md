@@ -4,6 +4,10 @@ Server MCP locale per cercare prodotti Esselunga, filtrare offerte e leggere o a
 
 Il catalogo è interrogato in sola lettura. Il carrello usa una sessione HTTP locale rinnovata automaticamente; il server non può completare checkout o pagamento.
 
+## Uso personale e privacy
+
+Questo progetto è non ufficiale ed è pensato esclusivamente per uso personale e privato, sul proprio account Esselunga. Non è affiliato, approvato né supportato da Esselunga e non intende arrecare danno, offesa o pregiudizio a Esselunga, ai suoi servizi o ai suoi utenti. Usa esclusivamente dati e credenziali del proprietario dell'account, non raccoglie né condivide informazioni di terzi e non deve essere usato per aggirare controlli, limitazioni o misure di sicurezza del sito.
+
 ## Requisiti
 
 - Windows

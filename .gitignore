@@ -1,0 +1,6 @@
+node_modules/
+.env
+cart-request.curl
+.esselunga-browser/
+.esselunga-session.json
+*.log

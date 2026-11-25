@@ -1,0 +1,24 @@
+{
+  "name": "esselunga-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Server MCP per catalogo, offerte e carrello Esselunga",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "setup": "tsx src/setup.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "dotenv": "^18.0.10",
+    "playwright": "^1.65.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^6.0.0"
+  }
+}

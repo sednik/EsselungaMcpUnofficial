@@ -8,6 +8,8 @@ Il catalogo è interrogato in sola lettura. Il carrello usa una sessione HTTP lo
 
 Questo progetto è non ufficiale ed è pensato esclusivamente per uso personale e privato, sul proprio account Esselunga. Non è affiliato, approvato né supportato da Esselunga e non intende arrecare danno, offesa o pregiudizio a Esselunga, ai suoi servizi o ai suoi utenti. Usa esclusivamente dati e credenziali del proprietario dell'account, non raccoglie né condivide informazioni di terzi e non deve essere usato per aggirare controlli, limitazioni o misure di sicurezza del sito.
 
+Chi installa o utilizza il server si assume integralmente la responsabilità del suo impiego, della custodia delle proprie credenziali e del rispetto di termini di servizio, leggi e regolamenti applicabili. Gli autori e i contributori non assumono alcuna responsabilità per usi impropri, danni, perdite di dati o conseguenze derivanti dall'uso del progetto.
+
 ## Requisiti
 
 - Windows

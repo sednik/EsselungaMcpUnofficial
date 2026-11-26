@@ -77,6 +77,14 @@ function imageUrlIsAllowed(imageURL: string): boolean {
   }
 }
 
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function money(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 async function getBrowserPage(headless = browserHeadless): Promise<Page> {
   if (browserContext && browserIsHeadless !== headless) {
     await browserContext.close();
@@ -424,12 +432,33 @@ server.registerTool(
       // Il carrello base rimane disponibile anche se il riepilogo prezzi non lo è.
     }
 
+    const productDetails = new Map<string, Record<string, unknown>>();
+    for (const item of trolley.trolleyItems) {
+      if (typeof item.productCode !== 'string' || productDetails.has(item.productCode)) continue;
+      try {
+        const detail = await requestJson(`/commerce/resources/displayable/detail/code/${encodeURIComponent(item.productCode)}`);
+        const detailPayload = asObject(detail.payload);
+        const product = asObject(detailPayload?.displayableProduct) ?? asObject(detail.payload);
+        if (detail.status === 200 && product) productDetails.set(item.productCode, product);
+      } catch {
+        // Stato e promozioni di una singola riga non devono impedire la lettura del carrello.
+      }
+    }
+
     const items = trolley.trolleyItems.map((item) => {
       const interval = item.productInterval as Record<string, unknown> | null | undefined;
       const ums = interval?.ums as Record<string, unknown> | null | undefined;
       const pricing = typeof item.trolleyItemId === 'number' ? pricingItems.get(item.trolleyItemId) : undefined;
-      const discountedUnitPrice = pricing?.discountedUnitPrice;
-      const discountedQuantityAwarePrice = pricing?.discountedQuantityAwarePrice;
+      const detail = typeof item.productCode === 'string' ? productDetails.get(item.productCode) : undefined;
+      const fullUnitPrice = finiteNumber(pricing?.unitPrice) ?? finiteNumber(pricing?.quantityAwarePrice);
+      const rawDiscountedUnitPrice = finiteNumber(pricing?.discountedUnitPrice);
+      const effectiveUnitPrice = rawDiscountedUnitPrice ?? fullUnitPrice;
+      const quantity = finiteNumber(item.quantity);
+      const computedProductDiscount = fullUnitPrice !== undefined && effectiveUnitPrice !== undefined && quantity !== undefined
+        ? money(Math.max(0, fullUnitPrice - effectiveUnitPrice) * quantity)
+        : undefined;
+      const checkoutPromotions = Array.isArray(pricing?.promotionsDetail) ? pricing.promotionsDetail : [];
+      const detailPromotions = Array.isArray(detail?.promotionsDetail) ? detail.promotionsDetail : [];
       return {
         trolleyItemId: item.trolleyItemId,
         productId: item.productId,
@@ -442,16 +471,20 @@ server.registerTool(
         unitValue: interval?.value,
         productType: item.productType,
         quantityDisabled: item.quantityDisabled,
-        unitPrice: pricing?.unitPrice,
-        discountedUnitPrice,
-        effectiveUnitPrice: discountedUnitPrice ?? pricing?.unitPrice,
-        quantityAwarePrice: pricing?.quantityAwarePrice,
-        discountedQuantityAwarePrice,
-        effectiveQuantityAwarePrice: discountedQuantityAwarePrice ?? pricing?.quantityAwarePrice,
-        promotions: pricing?.promotionsDetail,
+        unitPrice: fullUnitPrice,
+        discountedUnitPrice: rawDiscountedUnitPrice,
+        effectiveUnitPrice,
+        quantityAwarePrice: fullUnitPrice,
+        discountedQuantityAwarePrice: rawDiscountedUnitPrice ?? finiteNumber(pricing?.discountedQuantityAwarePrice),
+        effectiveQuantityAwarePrice: effectiveUnitPrice,
+        computedProductDiscount,
+        promotions: checkoutPromotions.length > 0 ? checkoutPromotions : detailPromotions,
+        outOfStock: detail?.outOfStock ?? null,
+        availability: detail ? (detail.outOfStock === true ? 'out_of_stock' : 'available') : 'unknown',
         imageURL: pricing?.imageURL,
       };
     });
+    const computedProductDiscount = money(items.reduce((total, item) => total + (finiteNumber(item.computedProductDiscount) ?? 0), 0));
     return {
       content: [{
         type: 'text',
@@ -463,7 +496,8 @@ server.registerTool(
             totalAmount: transaction?.totalAmount,
             transactionAmount: transaction?.transactionAmount,
             deliveryAmount: transaction?.deliveryAmount,
-            totalPromoDiscount: transaction?.totalDiscountFromPromoTotals,
+            totalPromoDiscount: computedProductDiscount,
+            reportedPromoDiscount: transaction?.totalDiscountFromPromoTotals,
             totalCouponDiscount: transaction?.totalDiscountFromFidatyCouponTotals,
           } : {
             source: 'unavailable',

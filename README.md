@@ -110,7 +110,9 @@ Legge il dettaglio del prodotto e restituisce gli eventuali `productIntervals` (
 
 ### `get_cart`
 
-Legge il carrello senza modificarlo. Restituisce `trolleyItemId`, `productCode`, quantità, descrizione, prezzi base e scontati, prezzo effettivo per quantità/peso, promozioni e totale autenticato. I valori provengono dal riepilogo checkout Esselunga associato alla stessa sessione del carrello.
+Legge il carrello senza modificarlo. Restituisce `trolleyItemId`, `productCode`, quantità, descrizione, prezzi base e scontati, prezzo effettivo per quantità/peso, promozioni, disponibilità e totale autenticato. I valori provengono dal riepilogo checkout Esselunga associato alla stessa sessione del carrello.
+
+`pricing.totalPromoDiscount` è calcolato dalle differenze tra prezzo pieno e prezzo scontato di ogni riga, quindi include le promo che il backend non inserisce nel proprio aggregato. Il valore originale, quando presente, rimane disponibile come `pricing.reportedPromoDiscount`.
 
 ### `update_cart`
 

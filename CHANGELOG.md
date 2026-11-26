@@ -9,6 +9,9 @@
 - Foto prodotto nelle chat MCP compatibili: anteprime opzionali in `search_products` e tool `get_product_image`.
 - Ricerca prodotti con sessione autenticata, per usare il listino del punto vendita associato all'account.
 - Prezzi, sconti, promozioni e totale effettivi nel risultato di `get_cart`.
+- Corrette le righe a peso variabile: prezzo pieno, prezzo scontato e sconto calcolato non dipendono dal campo checkout ambiguo `quantityAwarePrice`.
+- Promozioni e disponibilità per riga in `get_cart`, ottenute dal dettaglio prodotto autenticato.
+- `totalPromoDiscount` calcolato dalle differenze effettive di prezzo; aggiunto il valore grezzo del backend come `reportedPromoDiscount`.
 
 ## 1.0.0 — 2026-11-25
 

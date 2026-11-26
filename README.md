@@ -15,18 +15,32 @@ Chi installa o utilizza il server si assume integralmente la responsabilità del
 - Windows
 - Node.js 20 o successivo
 - Google Chrome installato, solo per la configurazione iniziale della sessione
+- Un account Esselunga già abilitato al servizio che intendi usare
 
-## Installazione
+## Installazione passo per passo
 
-Apri PowerShell nella cartella del progetto:
+1. Installa [Node.js 20 o successivo](https://nodejs.org/) e verifica l'installazione:
 
 ```powershell
-# dalla cartella in cui hai clonato il repository
+node --version
+npm --version
+```
+
+2. Clona il repository e apri la relativa cartella:
+
+```powershell
+git clone https://github.com/sednik/EsselungaMcpUnofficial.git
+cd EsselungaMcpUnofficial
+```
+
+3. Installa le dipendenze e crea la configurazione locale:
+
+```powershell
 npm install
 Copy-Item .env.example .env
 ```
 
-Il file `.env` è già escluso da Git. Non inserire né condividere password, cookie, token o il file della sessione.
+Il file `.env` è già escluso da Git. Non inserire né condividere password, cookie, token o il file della sessione. Per la normale installazione non devi compilare manualmente i valori di `.env`.
 
 ## Configurazione iniziale: una sola volta
 
@@ -48,7 +62,21 @@ Non devi copiare cookie dal browser né cambiare valori in `.env` durante il nor
 
 Se Esselunga revoca la sessione o chiede una nuova verifica, ripeti `npm run setup`.
 
-## Avvio del server
+## Collegamento al client MCP
+
+Configura il tuo client MCP per avviare il server dalla cartella del repository. La forma esatta della schermata cambia da client a client; la configurazione equivalente è:
+
+```json
+{
+  "command": "node",
+  "args": ["node_modules/tsx/dist/cli.mjs", "src/index.ts"],
+  "cwd": "<cartella-del-repository>"
+}
+```
+
+Sostituisci soltanto `<cartella-del-repository>` con la cartella in cui hai clonato il progetto. Non inserire credenziali nel file di configurazione del client.
+
+## Avvio e verifica locale
 
 ```powershell
 npm start
@@ -63,6 +91,18 @@ npx @modelcontextprotocol/inspector node_modules/tsx/dist/cli.mjs src/index.ts
 ```
 
 Nella pagina di Inspector premi **Connect**, poi apri **Tools**.
+
+## Esempi visivi
+
+Le immagini seguenti sono anteprime illustrative dell'output MCP, create senza dati dell'account o del carrello.
+
+### Ricerca prodotti
+
+![Esempio illustrativo di ricerca prodotti](docs/screenshots/search-products.svg)
+
+### Slot di consegna o ritiro
+
+![Esempio illustrativo di slot disponibili](docs/screenshots/delivery-slots.svg)
 
 ## Strumenti MCP
 

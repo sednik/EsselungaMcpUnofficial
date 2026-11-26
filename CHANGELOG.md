@@ -12,6 +12,7 @@
 - Corrette le righe a peso variabile: prezzo pieno, prezzo scontato e sconto calcolato non dipendono dal campo checkout ambiguo `quantityAwarePrice`.
 - Promozioni e disponibilità per riga in `get_cart`, ottenute dal dettaglio prodotto autenticato.
 - `totalPromoDiscount` calcolato dalle differenze effettive di prezzo; aggiunto il valore grezzo del backend come `reportedPromoDiscount`.
+- Corretto il calcolo dei prezzi di riga: gli articoli a pezzo moltiplicano il prezzo per la quantità, mentre quelli a peso mantengono il prezzo della pezzatura Esselunga.
 
 ## 1.0.0 — 2026-11-25
 

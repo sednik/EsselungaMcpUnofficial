@@ -114,6 +114,8 @@ Legge il carrello senza modificarlo. Restituisce `trolleyItemId`, `productCode`,
 
 `pricing.totalPromoDiscount` è calcolato dalle differenze tra prezzo pieno e prezzo scontato di ogni riga, quindi include le promo che il backend non inserisce nel proprio aggregato. Il valore originale, quando presente, rimane disponibile come `pricing.reportedPromoDiscount`.
 
+I campi `quantityAwarePrice`, `discountedQuantityAwarePrice` ed `effectiveQuantityAwarePrice` sono totali di riga: per gli articoli a pezzo tengono conto della quantità; per gli articoli a peso usano il prezzo già calcolato da Esselunga per la pezzatura selezionata.
+
 ### `update_cart`
 
 Modifica il carrello e richiede sempre `confirm: true` per eseguire l’azione. Prima puoi fare un’anteprima con `confirm: false`.

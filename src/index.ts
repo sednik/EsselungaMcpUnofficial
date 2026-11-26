@@ -454,6 +454,15 @@ server.registerTool(
       const rawDiscountedUnitPrice = finiteNumber(pricing?.discountedUnitPrice);
       const effectiveUnitPrice = rawDiscountedUnitPrice ?? fullUnitPrice;
       const quantity = finiteNumber(item.quantity);
+      const isWeightBased = ums?.umsType === 'WEIGHT';
+      const quantityMultiplier = isWeightBased ? 1 : quantity ?? 1;
+      const quantityAwarePrice = fullUnitPrice === undefined ? undefined : money(fullUnitPrice * quantityMultiplier);
+      const discountedQuantityAwarePrice = rawDiscountedUnitPrice === undefined
+        ? undefined
+        : money(rawDiscountedUnitPrice * quantityMultiplier);
+      const effectiveQuantityAwarePrice = effectiveUnitPrice === undefined
+        ? undefined
+        : money(effectiveUnitPrice * quantityMultiplier);
       const computedProductDiscount = fullUnitPrice !== undefined && effectiveUnitPrice !== undefined && quantity !== undefined
         ? money(Math.max(0, fullUnitPrice - effectiveUnitPrice) * quantity)
         : undefined;
@@ -474,9 +483,9 @@ server.registerTool(
         unitPrice: fullUnitPrice,
         discountedUnitPrice: rawDiscountedUnitPrice,
         effectiveUnitPrice,
-        quantityAwarePrice: fullUnitPrice,
-        discountedQuantityAwarePrice: rawDiscountedUnitPrice ?? finiteNumber(pricing?.discountedQuantityAwarePrice),
-        effectiveQuantityAwarePrice: effectiveUnitPrice,
+        quantityAwarePrice,
+        discountedQuantityAwarePrice,
+        effectiveQuantityAwarePrice,
         computedProductDiscount,
         promotions: checkoutPromotions.length > 0 ? checkoutPromotions : detailPromotions,
         outOfStock: detail?.outOfStock ?? null,

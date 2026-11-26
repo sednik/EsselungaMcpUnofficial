@@ -90,7 +90,7 @@ Puoi filtrare un tipo di promozione:
 }
 ```
 
-Il risultato include `code`, `productId`, prezzo, prezzo scontato, disponibilità, promozioni, eventuali intervalli di peso e `imageURL`. Per aggiungere un prodotto al carrello serve il valore `code`, non `productId`.
+Il risultato include `code`, `productId`, prezzo, prezzo scontato, disponibilità, promozioni, eventuali intervalli di peso e `imageURL`. Quando la sessione è configurata, la ricerca usa il listino autenticato associato all'account/punto vendita; il campo `priceContext` lo indica. Per aggiungere un prodotto al carrello serve il valore `code`, non `productId`.
 
 Imposta `includeImages: true` per allegare alla risposta fino a quattro foto direttamente nella chat LLM, se il client MCP supporta contenuti immagine:
 
@@ -110,7 +110,7 @@ Legge il dettaglio del prodotto e restituisce gli eventuali `productIntervals` (
 
 ### `get_cart`
 
-Legge il carrello senza modificarlo. Restituisce `trolleyItemId`, `productCode`, quantità e descrizione degli articoli.
+Legge il carrello senza modificarlo. Restituisce `trolleyItemId`, `productCode`, quantità, descrizione, prezzi base e scontati, prezzo effettivo per quantità/peso, promozioni e totale autenticato. I valori provengono dal riepilogo checkout Esselunga associato alla stessa sessione del carrello.
 
 ### `update_cart`
 

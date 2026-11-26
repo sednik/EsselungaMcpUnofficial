@@ -10,8 +10,6 @@ const ORIGIN = 'https://spesaonline.esselunga.it';
 const LOGIN_URL = `${ORIGIN}/commerce/login/spesaonline`;
 const pagePath = process.env.ESSELUNGA_PAGE_PATH;
 const cookie = process.env.ESSELUNGA_COOKIE;
-const xsrfCookieValue = cookie?.split(';').map((part) => part.trim()).find((part) => part.startsWith('XSRF-ECOM-TOKEN='))?.slice('XSRF-ECOM-TOKEN='.length);
-const xsrfToken = process.env.ESSELUNGA_XSRF_TOKEN || xsrfCookieValue;
 const browserProfileDir = path.resolve(process.cwd(), process.env.ESSELUNGA_BROWSER_PROFILE_DIR || '.esselunga-browser');
 const browserHeadless = process.env.ESSELUNGA_BROWSER_HEADLESS === 'true';
 const sessionStateFile = path.resolve(process.cwd(), process.env.ESSELUNGA_SESSION_FILE || '.esselunga-session.json');
@@ -164,39 +162,45 @@ server.registerTool(
       referer: `${ORIGIN}/commerce/nav/supermercato/`,
       'x-page-path': pagePath,
     };
-    if (cookie) headers.cookie = cookie;
-    if (xsrfToken) headers['x-xsrf-token'] = xsrfToken;
-
-    const response = await fetch(`${ORIGIN}/commerce/resources/search/facet`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        query,
-        start,
-        length,
-        isLargeQuerySearch: !promotion,
-        filters: promotion ? [{ type: 'MSF_PROMO', ids: [promotion] }] : [],
-        rmtCookieAllowed: false,
-      }),
-      signal: AbortSignal.timeout(20_000),
+    const body = JSON.stringify({
+      query,
+      start,
+      length,
+      isLargeQuerySearch: !promotion,
+      filters: promotion ? [{ type: 'MSF_PROMO', ids: [promotion] }] : [],
+      rmtCookieAllowed: false,
     });
 
-    const responseText = await response.text();
-    if (!response.ok) {
+    let searchResult: { status: number; payload: unknown };
+    let priceContext: 'authenticated_store' | 'public_fallback';
+    try {
+      searchResult = await requestJson('/commerce/resources/search/facet', { method: 'POST', headers, body });
+      priceContext = 'authenticated_store';
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (!message.includes('Manca una sessione iniziale')) throw error;
+      const response = await fetch(`${ORIGIN}/commerce/resources/search/facet`, {
+        method: 'POST',
+        headers,
+        body,
+        signal: AbortSignal.timeout(20_000),
+      });
+      const responseText = await response.text();
+      searchResult = {
+        status: response.status,
+        payload: responseText ? JSON.parse(responseText) : null,
+      };
+      priceContext = 'public_fallback';
+    }
+
+    if (searchResult.status < 200 || searchResult.status >= 300) {
       return {
         isError: true,
-        content: [{ type: 'text', text: `Ricerca Esselunga non riuscita (HTTP ${response.status}). La sessione potrebbe essere scaduta o il percorso pagina non valido.` }],
+        content: [{ type: 'text', text: `Ricerca Esselunga non riuscita (HTTP ${searchResult.status}). La sessione potrebbe essere scaduta o il percorso pagina non valido.` }],
       };
     }
 
-    let payload: unknown;
-    try {
-      payload = JSON.parse(responseText);
-    } catch {
-      return { isError: true, content: [{ type: 'text', text: 'Esselunga ha restituito una risposta non JSON.' }] };
-    }
-
-    const data = payload as {
+    const data = searchResult.payload as {
       displayables?: {
         entities?: Array<Record<string, unknown>>;
         rowCount?: number;
@@ -213,6 +217,7 @@ server.registerTool(
       type: 'text',
       text: JSON.stringify({
         query,
+        priceContext,
         total: displayables.rowCount,
         range: displayables.range,
         products,
@@ -398,9 +403,33 @@ server.registerTool(
       return { isError: true, content: [{ type: 'text', text: 'La risposta Esselunga non contiene trolleyItems come atteso.' }] };
     }
 
+    let pricingItems = new Map<number, Record<string, unknown>>();
+    let transaction: Record<string, unknown> | undefined;
+    let pricingStatus: number | undefined;
+    try {
+      const checkout = await requestJson('/commerce/resources/auth/checkout/cart');
+      pricingStatus = checkout.status;
+      const checkoutData = asObject(checkout.payload);
+      const cartData = asObject(checkoutData?.cart);
+      const receipt = asObject(cartData?.checkoutReceipt);
+      transaction = asObject(checkoutData?.transaction);
+      const receiptItems = Array.isArray(receipt?.checkoutReceiptItems) ? receipt.checkoutReceiptItems : [];
+      pricingItems = new Map(receiptItems.map(asObject)
+        .map((item) => {
+          const trolleyItem = asObject(item?.trolleyItem);
+          return typeof trolleyItem?.trolleyItemId === 'number' && item ? [trolleyItem.trolleyItemId, item] as const : undefined;
+        })
+        .filter((entry): entry is readonly [number, Record<string, unknown>] => Boolean(entry)));
+    } catch {
+      // Il carrello base rimane disponibile anche se il riepilogo prezzi non lo è.
+    }
+
     const items = trolley.trolleyItems.map((item) => {
       const interval = item.productInterval as Record<string, unknown> | null | undefined;
       const ums = interval?.ums as Record<string, unknown> | null | undefined;
+      const pricing = typeof item.trolleyItemId === 'number' ? pricingItems.get(item.trolleyItemId) : undefined;
+      const discountedUnitPrice = pricing?.discountedUnitPrice;
+      const discountedQuantityAwarePrice = pricing?.discountedQuantityAwarePrice;
       return {
         trolleyItemId: item.trolleyItemId,
         productId: item.productId,
@@ -413,6 +442,14 @@ server.registerTool(
         unitValue: interval?.value,
         productType: item.productType,
         quantityDisabled: item.quantityDisabled,
+        unitPrice: pricing?.unitPrice,
+        discountedUnitPrice,
+        effectiveUnitPrice: discountedUnitPrice ?? pricing?.unitPrice,
+        quantityAwarePrice: pricing?.quantityAwarePrice,
+        discountedQuantityAwarePrice,
+        effectiveQuantityAwarePrice: discountedQuantityAwarePrice ?? pricing?.quantityAwarePrice,
+        promotions: pricing?.promotionsDetail,
+        imageURL: pricing?.imageURL,
       };
     });
     return {
@@ -421,6 +458,17 @@ server.registerTool(
         text: JSON.stringify({
           storeId: trolley.storeId,
           totalQuantity: trolley.totalQuantity,
+          pricing: pricingItems.size > 0 ? {
+            source: 'authenticated_checkout',
+            totalAmount: transaction?.totalAmount,
+            transactionAmount: transaction?.transactionAmount,
+            deliveryAmount: transaction?.deliveryAmount,
+            totalPromoDiscount: transaction?.totalDiscountFromPromoTotals,
+            totalCouponDiscount: transaction?.totalDiscountFromFidatyCouponTotals,
+          } : {
+            source: 'unavailable',
+            checkoutStatus: pricingStatus,
+          },
           items,
           deletedItemGroups: trolley.deletedItems ? Object.fromEntries(Object.entries(trolley.deletedItems).map(([key, value]) => [key, Array.isArray(value) ? value.length : 0])) : {},
         }, null, 2),

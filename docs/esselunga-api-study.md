@@ -58,6 +58,7 @@ Confronto della query `latte`, `start: 0`, `length: 20`: struttura JSON uguale, 
 | Menu/categorie | `GET /commerce/resources/menu/{id}` | Il frontend lo usa per caricare una voce di menu. Richiede contesto pagina. |
 | Dettaglio prodotto | `GET /commerce/resources/displayable/detail/code/{productId}` | Percorso di dettaglio prodotto presente nel frontend. |
 | Carrello | `GET /commerce/resources/auth/trolley` | Autenticato; una richiesta anonima ha restituito HTTP 401. |
+| Riepilogo carrello/prezzi | `GET /commerce/resources/auth/checkout/cart` | Autenticato; restituisce le righe con prezzi base/scontati e i totali transazione. |
 | Modifica carrello | `POST /commerce/resources/auth/trolley/item` | Il frontend invia una struttura prodotto/quantità; schema da ricostruire. |
 | Svuota carrello | `DELETE /commerce/resources/auth/trolley/item` | Presente nel frontend; non provato. |
 | Promozioni account | `GET /commerce/resources/auth/promotions` | Autenticato. |
@@ -67,9 +68,9 @@ Confronto della query `latte`, `start: 0`, `length: 20`: struttura JSON uguale, 
 
 ## Lettura carrello
 
-La risposta osservata dal browser contiene `storeId`, `totalQuantity`, `trolleyItems` e `deletedItems`. Ogni articolo espone identificativo riga/prodotto, codice prodotto, descrizione, marca, quantità, tipo e un eventuale `productInterval` con unità e rapporto peso/quantità. La risposta contiene identificativi e contenuto del carrello, quindi nel repository è documentata solo la forma dei campi, senza valori personali.
+La risposta osservata dal browser contiene `storeId`, `totalQuantity`, `trolleyItems` e `deletedItems`. Ogni articolo espone identificativo riga/prodotto, codice prodotto, descrizione, marca, quantità, tipo e un eventuale `productInterval` con unità e rapporto peso/quantità. Questa risposta non contiene i prezzi finali delle righe: il frontend richiede separatamente `GET /commerce/resources/auth/checkout/cart`. Il riepilogo contiene `cart.checkoutReceipt.checkoutReceiptItems` (con `unitPrice`, `discountedUnitPrice`, `quantityAwarePrice`, `discountedQuantityAwarePrice`, promozioni e immagine) e `transaction` (totale, sconti e costi). La risposta contiene identificativi e contenuto del carrello, quindi nel repository è documentata solo la forma dei campi, senza valori personali.
 
-Il server MCP espone `get_cart`, che legge `GET /commerce/resources/auth/trolley` usando `ESSELUNGA_COOKIE` dal `.env` locale. La tool riduce la risposta ai campi utili e non modifica il carrello. Non è stata provata con la sessione dell'utente.
+Il server MCP espone `get_cart`, che legge entrambi gli endpoint con la sessione HTTP rinnovabile e unisce le righe tramite `trolleyItemId`. In questo modo espone i prezzi effettivi e i totali senza modificare il carrello.
 
 La sessione HTTP esportata dal browser ha ricevuto HTTP 401 anche con il cookie e il token XSRF della richiesta; `open_browser_session` crea quindi un profilo Chrome locale `.esselunga-browser` ignorato da Git, e `get_cart` esegue la stessa chiamata dal browser già autenticato. Il profilo e i cookie restano in locale.
 

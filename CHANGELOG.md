@@ -7,6 +7,8 @@
 - Aggiunta al carrello di prodotti a peso variabile tramite `productIntervalId`.
 - Tool `get_product_details` per leggere intervalli di peso e attributi selezionabili.
 - Foto prodotto nelle chat MCP compatibili: anteprime opzionali in `search_products` e tool `get_product_image`.
+- Ricerca prodotti con sessione autenticata, per usare il listino del punto vendita associato all'account.
+- Prezzi, sconti, promozioni e totale effettivi nel risultato di `get_cart`.
 
 ## 1.0.0 — 2026-11-25
 

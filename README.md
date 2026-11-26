@@ -131,6 +131,8 @@ Mostra date e fasce orarie di consegna o ritiro disponibili per il profilo e il 
 
 La risposta include anche `firstAvailable` e, se presente, `currentReservation`. Per vedere anche slot non disponibili, usa `availableOnly: false`.
 
+> **Contesto di consegna:** gli slot restituiti appartengono esclusivamente alla modalità attiva nel tuo account Esselunga al momento della richiesta (consegna a domicilio oppure ritiro/Drive) e al relativo negozio o indirizzo selezionato. Il tool non confronta le due modalità, non cambia indirizzo o punto vendita e non prenota/modifica uno slot.
+
 ### `update_cart`
 
 Modifica il carrello e richiede sempre `confirm: true` per eseguire l’azione. Prima puoi fare un’anteprima con `confirm: false`.

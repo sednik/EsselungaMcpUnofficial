@@ -116,6 +116,8 @@ Legge il carrello senza modificarlo. Restituisce `trolleyItemId`, `productCode`,
 
 I campi `quantityAwarePrice`, `discountedQuantityAwarePrice` ed `effectiveQuantityAwarePrice` sono totali di riga: per gli articoli a pezzo tengono conto della quantità; per gli articoli a peso usano il prezzo già calcolato da Esselunga per la pezzatura selezionata.
 
+Quando una riga ha una sola promozione ma Esselunga ne omette il valore, il server valorizza `promotions[0].value` con lo sconto calcolato della riga, espresso come importo negativo.
+
 ### `update_cart`
 
 Modifica il carrello e richiede sempre `confirm: true` per eseguire l’azione. Prima puoi fare un’anteprima con `confirm: false`.

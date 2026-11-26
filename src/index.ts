@@ -468,6 +468,13 @@ server.registerTool(
         : undefined;
       const checkoutPromotions = Array.isArray(pricing?.promotionsDetail) ? pricing.promotionsDetail : [];
       const detailPromotions = Array.isArray(detail?.promotionsDetail) ? detail.promotionsDetail : [];
+      const sourcePromotions = checkoutPromotions.length > 0 ? checkoutPromotions : detailPromotions;
+      const promotions = sourcePromotions.map(asObject).map((promotion) => {
+        if (!promotion || sourcePromotions.length !== 1 || promotion.value !== null || computedProductDiscount === undefined) {
+          return promotion;
+        }
+        return { ...promotion, value: -computedProductDiscount };
+      }).filter((promotion): promotion is Record<string, unknown> => Boolean(promotion));
       return {
         trolleyItemId: item.trolleyItemId,
         productId: item.productId,
@@ -487,7 +494,7 @@ server.registerTool(
         discountedQuantityAwarePrice,
         effectiveQuantityAwarePrice,
         computedProductDiscount,
-        promotions: checkoutPromotions.length > 0 ? checkoutPromotions : detailPromotions,
+        promotions,
         outOfStock: detail?.outOfStock ?? null,
         availability: detail ? (detail.outOfStock === true ? 'out_of_stock' : 'available') : 'unknown',
         imageURL: pricing?.imageURL,

@@ -310,6 +310,73 @@ server.registerTool(
 );
 
 server.registerTool(
+  'get_delivery_slots',
+  {
+    title: 'Leggi date e orari di consegna',
+    description: 'Mostra gli slot di consegna o ritiro disponibili per il profilo Esselunga e il carrello correnti. È una lettura: non prenota né modifica lo slot.',
+    inputSchema: {
+      availableOnly: z.boolean().default(true).describe('Se true, mostra solo gli slot prenotabili'),
+      limit: z.number().int().min(1).max(200).default(50).describe('Numero massimo di slot da restituire'),
+    },
+  },
+  async ({ availableOnly, limit }) => {
+    try {
+      const statusResult = await requestJson('/commerce/resources/auth/slot/status');
+      const firstAvailableResult = await requestJson('/commerce/resources/auth/slot/firstAvailable');
+      if (statusResult.status !== 200) {
+        return { isError: true, content: [{ type: 'text', text: `Disponibilità consegne non disponibile (HTTP ${statusResult.status}).` }] };
+      }
+      const status = asObject(statusResult.payload);
+      const slots = (Array.isArray(status?.slots) ? status.slots : []).map(asObject)
+        .filter((slot): slot is Record<string, unknown> => Boolean(slot))
+        .map((slot) => ({
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          price: slot.price,
+          status: slot.status,
+          statusDescription: slot.statusDescription,
+          available: slot.active === true && slot.disabled !== true,
+          disabled: slot.disabled === true,
+          reactivable: slot.reactivable === true,
+          eco: slot.eco === true,
+          fast: slot.fast === true,
+          cutOffInsertTime: slot.cutOffInsertTime,
+          uniqueTimeId: slot.uniqueTimeId,
+        }))
+        .filter((slot) => !availableOnly || slot.available)
+        .slice(0, limit);
+      const firstAvailable = asObject(firstAvailableResult.payload);
+      const reservation = asObject(status?.slotReservation);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            availableOnly,
+            totalReturned: slots.length,
+            firstAvailable: firstAvailableResult.status === 200 ? {
+              startTime: firstAvailable?.startTime,
+              endTime: firstAvailable?.endTime,
+              price: firstAvailable?.price,
+              status: firstAvailable?.status,
+              statusDescription: firstAvailable?.statusDescription,
+            } : null,
+            currentReservation: reservation ? {
+              startTime: reservation.startTime,
+              endTime: reservation.endTime,
+              reservationDate: reservation.reservationDate,
+              reservationTime: reservation.reservationTime,
+            } : null,
+            slots,
+          }, null, 2),
+        }],
+      };
+    } catch (error) {
+      return { isError: true, content: [{ type: 'text', text: error instanceof Error ? error.message : 'Impossibile leggere gli slot disponibili.' }] };
+    }
+  },
+);
+
+server.registerTool(
   'open_browser_session',
   {
     title: 'Apri sessione browser Esselunga',

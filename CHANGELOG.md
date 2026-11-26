@@ -14,6 +14,7 @@
 - `totalPromoDiscount` calcolato dalle differenze effettive di prezzo; aggiunto il valore grezzo del backend come `reportedPromoDiscount`.
 - Corretto il calcolo dei prezzi di riga: gli articoli a pezzo moltiplicano il prezzo per la quantità, mentre quelli a peso mantengono il prezzo della pezzatura Esselunga.
 - Valore normalizzato nelle promo a valore nullo: per una sola promo di riga viene esposto lo sconto calcolato negativo.
+- Tool `get_delivery_slots` per consultare in sola lettura date, orari, prezzi e disponibilità di consegna/ritiro.
 
 ## 1.0.0 — 2026-11-25
 

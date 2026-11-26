@@ -59,6 +59,8 @@ Confronto della query `latte`, `start: 0`, `length: 20`: struttura JSON uguale, 
 | Dettaglio prodotto | `GET /commerce/resources/displayable/detail/code/{productId}` | Percorso di dettaglio prodotto presente nel frontend. |
 | Carrello | `GET /commerce/resources/auth/trolley` | Autenticato; una richiesta anonima ha restituito HTTP 401. |
 | Riepilogo carrello/prezzi | `GET /commerce/resources/auth/checkout/cart` | Autenticato; restituisce le righe con prezzi base/scontati e i totali transazione. |
+| Slot consegna/ritiro | `GET /commerce/resources/auth/slot/status` | Autenticato; restituisce gli slot, la prenotazione corrente e lo stato del pannello. |
+| Prima disponibilità | `GET /commerce/resources/auth/slot/firstAvailable` | Autenticato; restituisce il primo slot disponibile. |
 | Modifica carrello | `POST /commerce/resources/auth/trolley/item` | Il frontend invia una struttura prodotto/quantità; schema da ricostruire. |
 | Svuota carrello | `DELETE /commerce/resources/auth/trolley/item` | Presente nel frontend; non provato. |
 | Promozioni account | `GET /commerce/resources/auth/promotions` | Autenticato. |

@@ -118,6 +118,19 @@ I campi `quantityAwarePrice`, `discountedQuantityAwarePrice` ed `effectiveQuanti
 
 Quando una riga ha una sola promozione ma Esselunga ne omette il valore, il server valorizza `promotions[0].value` con lo sconto calcolato della riga, espresso come importo negativo.
 
+### `get_delivery_slots`
+
+Mostra date e fasce orarie di consegna o ritiro disponibili per il profilo e il carrello correnti, senza prenotare né cambiare lo slot. Per impostazione predefinita restituisce solo gli slot prenotabili, con prezzo ed eventuale termine ultimo di prenotazione:
+
+```json
+{
+  "availableOnly": true,
+  "limit": 20
+}
+```
+
+La risposta include anche `firstAvailable` e, se presente, `currentReservation`. Per vedere anche slot non disponibili, usa `availableOnly: false`.
+
 ### `update_cart`
 
 Modifica il carrello e richiede sempre `confirm: true` per eseguire l’azione. Prima puoi fare un’anteprima con `confirm: false`.
